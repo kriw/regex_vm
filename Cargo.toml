@@ -1,0 +1,6 @@
+[package]
+name = "regex_vm"
+version = "0.1.0"
+authors = ["kriw"]
+
+[dependencies]
