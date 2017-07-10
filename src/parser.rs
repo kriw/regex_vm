@@ -81,7 +81,7 @@ fn parse_factor<'a, T>(code: &mut Peekable<T>) -> Result<Ast, &'static str>
 fn parse_char<'a, T>(code: &mut Peekable<T>) -> Result<Ast, &'static str>
     where T: Iterator<Item=&'a Token> {
 
-    let mut ast = match **code.peek().unwrap() {
+    let ast = match **code.peek().unwrap() {
         Token::Char(x)      => {
             eat(code, Token::Char(x));
             Ok(Ast::Char(x))

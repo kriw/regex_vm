@@ -1,6 +1,7 @@
 #![feature(box_syntax, box_patterns)]
 mod token;
 mod parser;
+mod vm;
 
 #[test]
 fn parser_test() {
@@ -26,6 +27,8 @@ fn parser_test() {
 fn main() {
     let code1 = token::tokenize(String::from("a*b*|c*|j"));
     let ast = parser::parse(&mut code1.iter().peekable());
-    println!("{:?}", code1);
-    println!("{:?}", ast);
+    let ir = vm::compile(ast.unwrap());
+    // println!("{:?}", code1);
+    // println!("{:?}", ast);
+    vm::dump(ir);
 }
