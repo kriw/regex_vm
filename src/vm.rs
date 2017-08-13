@@ -1,75 +1,58 @@
-use std::thread;
+use std::collections::VecDeque;
+use std::str::Chars;
 use parser::Ast;
+use vm_ir::Ir;
 
-pub type PC = u32;
-#[derive(Debug, Clone, Copy)]
-pub enum Ir {
-    Char(PC, char),
-    Jmp(PC, PC),   //Jmp(p1, p2): jmp to p2 from p1
-    Split(PC, PC, PC),
-    Nop(PC),
-    Hlt(PC),
+enum State {
+    Run,
+    Fail,
+    Hlt,
 }
 
-fn top_pc(ir: &Vec<Ir>) -> PC {
-    if ir.first().is_none() {
-        return 1
+pub fn is_match(s: String, mut ir: Vec<Ir>) -> bool {
+    let mut q = VecDeque::new();
+    q.push_back((0, s.chars()));
+    while !q.is_empty() {
+        if let Some((head, mut chs)) = q.pop_front() {
+            if ir.len() <= head {
+                continue;
+            }
+            let rs = exec(ir[head as usize], &mut chs);
+            for r in rs {
+                match r.1 {
+                    State::Run => q.push_back((r.0 as usize, chs.clone())),
+                    State::Fail => {},
+                    State::Hlt => {
+                        //HACKME
+                        if chs.clone().peekable().peek().is_none() {
+                            return true;
+                        }
+                    },
+                }
+            }
+        }
     }
-    let i = ir.first().unwrap();
-    match (*i).clone() {
-        Ir::Char(pc, _) => pc,
-        Ir::Jmp(pc, _) => pc,
-        Ir::Split(pc, _, _) => pc,
-        Ir::Nop(pc) => pc,
-        Ir::Hlt(pc) => pc,
-    }
+    return false;
 }
 
-
-fn compose<F>(ast: Ast, pc: &mut F) -> Vec<Ir>
-    where F : FnMut() -> u32 {
-    match ast {
-        Ast::Char(x)         => {
-            vec![Ir::Char(pc(), x)]
-        },
-        Ast::Concat(a1, a2)  => {
-            let c1 = compose(*a1, pc);
-            let c2 = compose(*a2, pc);
-            vec![c1, c2].into_iter().flat_map(|x| x).collect::<Vec<_>>()
-        },
-        Ast::Alt(a1, a2)     => {
-            let c0 = pc();
-            let c1 = compose(*a1, pc);
-            let jmp_from = pc();
-            let c2 = compose(*a2, pc);
-            vec![vec![Ir::Split(c0, top_pc(&c1), top_pc(&c2))], c1, vec![Ir::Jmp(jmp_from, pc())], c2]
-                .into_iter().flat_map(|x| x).collect::<Vec<_>>()
-        },
-        Ast::Star(a)         => {
-            let c1 = compose(*a, pc);
-            let c2 = {
-                let p = pc();
-                vec![Ir::Split(p, top_pc(&c1), p+1)]
+fn exec(code: Ir, head: &mut Chars) -> Vec<(u32, State)> {
+    match code {
+        Ir::Char(pc, ch) => {
+            let nxt = head.next();
+            let st = if nxt.is_none() {
+                State::Fail
+            }else if ch == nxt.unwrap() {
+                State::Run
+            }else {
+                State::Fail
             };
-            c1.into_iter().chain(c2).collect::<Vec<_>>()
+            vec![(pc + 1, st)]
         },
-    }
-}
-
-pub fn compile(ast: Ast) -> Vec<Ir> {
-    let mut counter = 0;
-    let mut pc = move || {
-        counter += 1;
-        counter
-    };
-    let mut code = compose(ast, &mut pc);
-    let hlt = vec![Ir::Hlt(pc())];
-    code.into_iter().chain(hlt).collect::<Vec<_>>()
-}
-
-//for debug
-pub fn dump(irs: Vec<Ir>) {
-    for ir in irs {
-        println!("{:?}", ir);
+        Ir::Jmp(pc, pc_to) => vec![(pc_to, State::Run)],
+        Ir::Split(pc, pc_to1, pc_to2) => vec![(pc_to1, State::Run), (pc_to2, State::Run)],
+        Ir::Nop(pc) => vec![(pc + 1, State::Run)],
+        Ir::Hlt(pc) => {
+            vec![(pc, State::Hlt)]
+        },
     }
 }

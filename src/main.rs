@@ -2,6 +2,7 @@
 mod token;
 mod parser;
 mod vm;
+mod vm_ir;
 
 #[test]
 fn parser_test() {
@@ -25,10 +26,14 @@ fn parser_test() {
 
 
 fn main() {
+    println!("a*b*|c*|j");
+    let p = "aa".to_string();
     let code1 = token::tokenize(String::from("a*b*|c*|j"));
     let ast = parser::parse(&mut code1.iter().peekable());
-    let ir = vm::compile(ast.unwrap());
+    let ir = vm_ir::compile(ast.unwrap());
+    let is_matched = vm::is_match(p, ir);
+    println!("{:?}", is_matched);
+    // vm_ir::dump(ir);
     // println!("{:?}", code1);
     // println!("{:?}", ast);
-    vm::dump(ir);
 }
